@@ -1,21 +1,59 @@
+//TODO: define tile width
+
 class MapQuadTreeNode {
-    constructor(z, y, x) {
+    constructor(z, x, y, isRight, isDown) {
         this.z = z
         this.x = x
         this.y = y
-        this.children = [null, null, null, null]
+        this.isRight = isRight
+        this.isDown = isDown
         this.img = null
+        this.children = [null, null, null, null]
 
-        const imageUrl = 'https://tile.openstreetmap.org/0/0/0.png'
-        // const imageUrl = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{0}/{0}/{0}'
+        const imageUrl = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`
+        // const imageUrl = `https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}.png`
         this.addImageToPage(imageUrl)
+        this.addChildNodes()
+    }
+
+
+    addChildNodes() {
+        const tiles = [
+            { x: 0, y: 0 },     // Top-left
+            { x: 1, y: 0 },     // Top-right
+            { x: 0, y: 1 },     // Bottom-left
+            { x: 1, y: 1 }      // Bottom-right
+        ];
+
+        let maxDepth = 3
+        if (this.z < maxDepth) {
+            for (let i = 0; i < 4; i++) {
+                const newX = 2 * this.x + tiles[i].x
+                const newY = 2 * this.y + tiles[i].y
+                this.children[i] = new MapQuadTreeNode(this.z + 1, newX, newY, tiles[i].x, tiles[i].y)
+            }
+        }
     }
 
     update(mapX, mapY, mapZ) {
+        let imgWidth = 500 * mapZ
+        if (this.z) {
+            imgWidth /= Math.pow(2, this.z)
+        }
+
+        let posX = this.isRight ? mapX + imgWidth : mapX
+        let posY = this.isDown ? mapY + imgWidth : mapY
+
         if (this.img) {
-            this.img.style.left = `${mapX}px`
-            this.img.style.top = `${mapY}px`
-            this.img.width = 500 * mapZ
+            this.img.width = imgWidth
+            this.img.style.left = `${posX}px`
+            this.img.style.top = `${posY}px`
+        }
+
+        for (let i = 0; i < 4; i++) {
+            if (this.children[i]) {
+                this.children[i].update(posX, posY, mapZ)
+            }
         }
     }
 
@@ -27,8 +65,9 @@ class MapQuadTreeNode {
         this.img.addEventListener('contextmenu', function (e) {
             e.preventDefault()
         });
-        this.img.style.position = 'absolute';
+        this.img.style.position = 'absolute'
         this.img.style.userSelect = 'none'
+        this.img.style.border = '1px solid #a61603'
 
         const container = document.getElementById('contain')
         container.appendChild(this.img)
@@ -45,7 +84,7 @@ class MapRenderer {
         this.prevX = 0
         this.prevY = 0
 
-        this.root = new MapQuadTreeNode(0, 0, 0)
+        this.root = new MapQuadTreeNode(0, 0, 0, 0, 0)
 
         this.fullscreenCapture = document.getElementById('fullscreen-capture')
         this.attachEventListeners()
