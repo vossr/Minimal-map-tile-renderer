@@ -1,6 +1,8 @@
 //TODO: define tile width
 
 class MapQuadTreeNode {
+    #octreeMaxDepth = 19
+
     constructor(z, x, y, isRight, isDown) {
         this.z = z
         this.x = x
@@ -13,9 +15,7 @@ class MapQuadTreeNode {
         const imageUrl = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`
         // const imageUrl = `https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}.png`
         this.addImageToPage(imageUrl)
-        this.addChildNodes()
     }
-
 
     addChildNodes() {
         const tiles = [
@@ -25,14 +25,26 @@ class MapQuadTreeNode {
             { x: 1, y: 1 }      // Bottom-right
         ];
 
-        let maxDepth = 3
-        if (this.z < maxDepth) {
+        if (this.z + 1 <= this.#octreeMaxDepth) {
             for (let i = 0; i < 4; i++) {
-                const newX = 2 * this.x + tiles[i].x
-                const newY = 2 * this.y + tiles[i].y
-                this.children[i] = new MapQuadTreeNode(this.z + 1, newX, newY, tiles[i].x, tiles[i].y)
+                if (this.children[i] == null) {
+                    const newX = 2 * this.x + tiles[i].x
+                    const newY = 2 * this.y + tiles[i].y
+                    this.children[i] = new MapQuadTreeNode(this.z + 1, newX, newY, tiles[i].x, tiles[i].y)
+                }
             }
         }
+    }
+
+    deleteChildNodes() {
+    }
+
+    isImageOnScreen(imgPosX, imgPosY, imgWidth, imgHeight) {
+        const imgRightEdge = imgPosX + imgWidth;
+        const imgBottomEdge = imgPosY + imgHeight;
+        const isVisibleHorizontally = imgRightEdge > 0 && imgPosX < window.innerWidth;
+        const isVisibleVertically = imgBottomEdge > 0 && imgPosY < window.innerHeight;
+        return isVisibleHorizontally && isVisibleVertically;
     }
 
     update(mapX, mapY, mapZ) {
@@ -48,6 +60,14 @@ class MapQuadTreeNode {
             this.img.width = imgWidth
             this.img.style.left = `${posX}px`
             this.img.style.top = `${posY}px`
+
+            let minSize = Math.min(window.innerWidth, window.innerHeight)
+            let sizeOnScreen = imgWidth / minSize
+            if (sizeOnScreen > 0.5 && this.isImageOnScreen(posX, posY, imgWidth, imgWidth)) {
+                this.addChildNodes()
+            } else {
+                this.deleteChildNodes()
+            }
         }
 
         for (let i = 0; i < 4; i++) {
@@ -116,9 +136,7 @@ class MapRenderer {
         let zoomIntensity = e.deltaY * scrollSpeed
         let exponentialFactor = 2
         let newZoom = this.mapZ * Math.pow(1 - zoomIntensity, exponentialFactor);
-        //TODO clamp max
-        // console.log('newz', newZoom)
-        newZoom = this.clamp(newZoom, 1.0, 999999999999999)
+        newZoom = this.clamp(newZoom, 1.0, 400000.0)
 
         let mouseX = e.pageX - this.mapX
         let mouseY = e.pageY - this.mapY
