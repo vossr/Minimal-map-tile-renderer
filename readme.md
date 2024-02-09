@@ -1,2 +1,2 @@
-rendered with quadtree  
+map raster tile rendered with quadtree  
 exponential zoom  
